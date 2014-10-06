@@ -59,9 +59,12 @@ app.post('/signup', function(req, res){
   user.save().then(function(newUser) {
     Users.add(newUser);
   }).then(function(newUser){
-    //login newUser
     loginUser(req, res);
   });
+});
+
+app.post('/login', function(req, res){
+  loginUser(req, res);
 });
 
 app.post('/links',
@@ -118,7 +121,8 @@ function loginUser(req, res){
   db.knex('users')
     .where('username', '=' , req.body.username)
     .then(function(users) {
-      if (users['0']['password'] === req.body.password) {
+      console.log(users);
+      if ((users.length > 0) && (users['0']['password'] === req.body.password)) {
         req.session.regenerate(function(){
           req.session.user = req.body.username;
           res.redirect('/');
