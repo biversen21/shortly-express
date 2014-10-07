@@ -2,8 +2,8 @@ var express = require('express');
 var util = require('./lib/utility');
 var partials = require('express-partials');
 var bodyParser = require('body-parser');
-var session = require('express-session')
-
+var session = require('express-session');
+var bcrypt = require('bcrypt-nodejs');
 
 var db = require('./app/config');
 var Users = require('./app/collections/users');
@@ -51,16 +51,19 @@ app.get('/logout', function(req, res){
 
 app.post('/signup', function(req, res){
   var userBody = req.body;
+  var password;
+  bcrypt.hash(userBody.password, null, null, function(err, hash){
+    var user = new User({
+      username: userBody.username,
+      password: hash
+    });
+    user.save().then(function(newUser) {
+      Users.add(newUser);
+    }).then(function(newUser){
+      loginUser(req, res);
+    });
+  });
 
-  var user = new User({
-    username: userBody.username,
-    password: userBody.password
-  });
-  user.save().then(function(newUser) {
-    Users.add(newUser);
-  }).then(function(newUser){
-    loginUser(req, res);
-  });
 });
 
 app.post('/login', function(req, res){
@@ -121,14 +124,20 @@ function loginUser(req, res){
   db.knex('users')
     .where('username', '=' , req.body.username)
     .then(function(users) {
-      console.log(users);
-      if ((users.length > 0) && (users['0']['password'] === req.body.password)) {
-        req.session.regenerate(function(){
-          req.session.user = req.body.username;
-          res.redirect('/');
-        });
+      var isPassword = false;
+      if (users.length > 0){
+        bcrypt.compare(req.body.password, users['0']['password'], function(err, result){
+          if (result) {
+            req.session.regenerate(function(){
+              req.session.user = req.body.username;
+              res.redirect('/');
+            });
+          } else {
+           res.redirect('/login');
+          }
+        })
       } else {
-       res.redirect('/login');
+        res.redirect('/signup');
       }
     });
 }
